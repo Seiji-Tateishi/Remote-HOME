@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>フルリモート事務職スキルアセスメント</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            min-height: 100vh;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.3s ease;
+        }
+        
+        .section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .question-card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .option {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border: 2px solid transparent;
+        }
+        
+        .option:hover {
+            background: #e9ecef;
+        }
+        
+        .option.selected {
+            background: #e3f2fd;
+            border-color: #667eea;
+        }
+        
+        .option input {
+            margin-right: 12px;
+            cursor: pointer;
+        }
+        
+        .option label {
+            cursor: pointer;
+            flex: 1;
+        }
+        
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a6fd8;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .results {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+            align-items: start;
+        }
+        
+        .chart-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            height: fit-content;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 350px;
+            width: 100%;
+        }
+        
+        .score-list {
+            height: fit-content;
+        }
+        
+        .score-item {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .score-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .score-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .score-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        .level-badge {
+            font-size: 12px;
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        
+        .recommendations {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .results {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="app">
+            <!-- アプリケーションがここにレンダリングされます -->
+        </div>
+    </div>
+
+    <script>
+        let currentSection = 0;
+        let answers = {};
+        let showResults = false;
+        let chart = null;
+        
+        const assessmentSections = [
+            {
+                title: "コミュニケーション能力",
+                key: "communication",
+                questions: [
+                    {
+                        id: "comm1",
+                        question: "メールでの報告時、最も重要だと思うことは？",
+                        options: [
+                            { text: "簡潔で分かりやすい文章", value: 4, score: 4 },
+                            { text: "詳細な情報を全て記載", value: 2, score: 2 },
+                            { text: "丁寧な敬語の使用", value: 3.1, score: 3 },
+                            { text: "迅速な返信", value: 3.2, score: 3 }
+                        ]
+                    },
+                    {
+                        id: "comm2",
+                        question: "上司から「昨日の件、どうなった？」とチャットで聞かれました。しかし、複数の案件を抱えており、どの件か分からない状況です。どう返信しますか？",
+                        options: [
+                            { text: "「申し訳ございません。どちらの件でしょうか？」と確認する", value: 5, score: 5 },
+                            { text: "思い当たる案件について全て報告する", value: 3, score: 3 },
+                            { text: "「確認いたします」とだけ返信する", value: 1, score: 1 },
+                            { text: "最も可能性の高い案件について報告する", value: 2, score: 2 }
+                        ]
+                    },
+                    {
+                        id: "comm3",
+                        question: "オンラインでのやり取りにおける自分の得意度は？",
+                        options: [
+                            { text: "とても得意（毎日積極的に活用）", value: 5, score: 5 },
+                            { text: "得意（問題なく使用できる）", value: 4, score: 4 },
+                            { text: "普通（基本的な使用は可能）", value: 3, score: 3 },
+                            { text: "少し苦手（たまに困ることがある）", value: 2, score: 2 },
+                            { text: "苦手（避けがち）", value: 1, score: 1 }
+                        ]
+                    }
+                ]
+            },
+            {
+                title: "PCスキル",
+                key: "pc_skills",
+                questions: [
+                    {
+                        id: "pc1",
+                        question: "Excel/スプレッドシートで、売上データから月別の合計を出したい場合、どの関数を使いますか？",
+                        options: [
+                            { text: "SUM関数", value: 3, score: 3 },
+                            { text: "SUMIF関数", value: 5, score: 5 },
+                            { text: "COUNT関数", value: 1.1, score: 1 },
+                            { text: "分からない", value: 0, score: 0 }
+                        ]
+                    },
+                    {
+                        id: "pc2",
+                        question: "以下のソフト・ツールの使用経験はありますか？（複数選択可）",
+                        options: [
+                            { text: "Microsoft Office（Word, Excel, PowerPoint）", value: 2.1, score: 2 },
+                            { text: "Google Workspace（Docs, Sheets, Slides）", value: 2.2, score: 2 },
+                            { text: "Slack, Teams等のチャットツール", value: 1.1, score: 1 },
+                            { text: "Zoom, Meet等のビデオ会議ツール", value: 1.2, score: 1 },
+                            { text: "クラウドストレージ（Dropbox, Google Drive等）", value: 1.3, score: 1 }
+                        ],
+                        multiSelect: true
+                    },
+                    {
+                        id: "pc3",
+                        question: "PCで作業中にソフトが突然止まった場合、最初に行う対処法は？",
+                        options: [
+                            { text: "強制終了して再起動", value: 2, score: 2 },
+                            { text: "少し待って反応を見る", value: 3, score: 3 },
+                            { text: "タスクマネージャーで確認", value: 5, score: 5 },
+                            { text: "すぐに詳しい人に聞く", value: 1, score: 1 }
+                        ]
+                    }
+                ]
+            },
+            {
+                title: "事務業務の理解",
+                key: "office_work",
+                questions: [
+                    {
+                        id: "office1",
+                        question: "一般的な事務業務に含まれないものはどれですか？",
+                        options: [
+                            { text: "データ入力", value: 1.1, score: 1 },
+                            { text: "スケジュール管理", value: 1.2, score: 1 },
+                            { text: "商品開発", value: 5, score: 5 },
+                            { text: "資料作成", value: 1.3, score: 1 }
+                        ]
+                    },
+                    {
+                        id: "office2",
+                        question: "月末に経費精算をまとめる際、領収書に不備があることに気づきました。どう対応しますか？",
+                        options: [
+                            { text: "そのまま処理して後で修正", value: 1, score: 1 },
+                            { text: "該当者に確認を取ってから処理", value: 5, score: 5 },
+                            { text: "上司に判断を仰ぐ", value: 3, score: 3 },
+                            { text: "その項目を除外して処理", value: 2, score: 2 }
+                        ]
+                    },
+                    {
+                        id: "office3",
+                        question: "以下の業務が同時に発生した場合、優先順位をつけるとしたら？",
+                        options: [
+                            { text: "締切の近い順", value: 4, score: 4 },
+                            { text: "重要度の高い順", value: 5, score: 5 },
+                            { text: "簡単にできる順", value: 2, score: 2 },
+                            { text: "依頼者の立場順", value: 3, score: 3 }
+                        ]
+                    }
+                ]
+            },
+            {
+                title: "問題解決能力",
+                key: "problem_solving",
+                questions: [
+                    {
+                        id: "problem1",
+                        question: "顧客から「先週送った資料が届いていない」という連絡がありました。まず何を確認しますか？",
+                        options: [
+                            { text: "送信履歴とメールアドレス", value: 5, score: 5 },
+                            { text: "顧客の受信設定", value: 3, score: 3 },
+                            { text: "再送信する", value: 1, score: 1 },
+                            { text: "上司に報告", value: 2, score: 2 }
+                        ]
+                    },
+                    {
+                        id: "problem2",
+                        question: "データ入力で同じミスが繰り返し発生しています。根本的な解決策は？",
+                        options: [
+                            { text: "より注意深く作業する", value: 2, score: 2 },
+                            { text: "チェック体制を強化する", value: 4, score: 4 },
+                            { text: "入力フォーマットを見直す", value: 5, score: 5 },
+                            { text: "別の人に任せる", value: 1, score: 1 }
+                        ]
+                    },
+                    {
+                        id: "problem3",
+                        question: "新しいシステムの使い方が分からない時、どうやって解決しますか？",
+                        options: [
+                            { text: "マニュアルを読む", value: 4, score: 4 },
+                            { text: "同僚に聞く", value: 3, score: 3 },
+                            { text: "試行錯誤しながら覚える", value: 2, score: 2 },
+                            { text: "研修を受ける", value: 5, score: 5 }
+                        ]
+                    }
+                ]
+            },
+            {
+                title: "積極性",
+                key: "proactivity",
+                questions: [
+                    {
+                        id: "proactive1",
+                        question: "業務効率化のアイデアを思いついた場合、どうしますか？",
+                        options: [
+                            { text: "すぐに上司に提案する", value: 5, score: 5 },
+                            { text: "自分で試してから提案する", value: 4.1, score: 4 },
+                            { text: "同僚と相談してから提案する", value: 4.2, score: 4 },
+                            { text: "様子を見る", value: 1, score: 1 }
+                        ]
+                    },
+                    {
+                        id: "proactive2",
+                        question: "新しいスキルの習得についてどう考えますか？",
+                        options: [
+                            { text: "積極的に学びたい", value: 5, score: 5 },
+                            { text: "必要に応じて学ぶ", value: 3, score: 3 },
+                            { text: "指示があれば学ぶ", value: 2, score: 2 },
+                            { text: "あまり興味がない", value: 1, score: 1 }
+                        ]
+                    },
+                    {
+                        id: "proactive3",
+                        question: "締切まで余裕がある業務でも、早めに取り組みますか？",
+                        options: [
+                            { text: "いつも早めに取り組む", value: 5, score: 5 },
+                            { text: "だいたい早めに取り組む", value: 4, score: 4 },
+                            { text: "締切を考えて計画的に行う", value: 3, score: 3 },
+                            { text: "締切近くになってから行う", value: 1, score: 1 }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        function selectAnswer(questionId, value, isMultiSelect) {
+            console.log('Answer selected:', questionId, value, isMultiSelect);
+            
+            if (isMultiSelect) {
+                const currentAnswers = answers[questionId] || [];
+                if (currentAnswers.includes(value)) {
+                    answers[questionId] = currentAnswers.filter(v => v !== value);
+                } else {
+                    answers[questionId] = [...currentAnswers, value];
+                }
+            } else {
+                if (answers[questionId] === value) {
+                    delete answers[questionId];
+                } else {
+                    answers[questionId] = value;
+                }
+            }
+            
+            console.log('Updated answers:', answers);
+            
+            // 完全に再描画する（確実に動作させるため）
+            render();
+        }
+
+        function nextSection() {
+            if (currentSection < assessmentSections.length - 1) {
+                currentSection++;
+                render();
+            } else {
+                showResults = true;
+                render();
+                setTimeout(createChart, 100);
+            }
+        }
+
+        function prevSection() {
+            if (currentSection > 0) {
+                currentSection--;
+                render();
+            }
+        }
+
+        function restart() {
+            currentSection = 0;
+            answers = {};
+            showResults = false;
+            if (chart) {
+                chart.destroy();
+                chart = null;
+            }
+            render();
+        }
+
+        function exportResults() {
+            const scores = calculateScores();
+            const exportData = {
+                timestamp: new Date().toISOString(),
+                scores: scores,
+                answers: answers
+            };
+            
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `assessment_result_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function calculateScores() {
+            const scores = {};
+            
+            assessmentSections.forEach(section => {
+                let totalScore = 0;
+                let maxScore = 0;
+                
+                section.questions.forEach(question => {
+                    const answer = answers[question.id];
+                    if (question.multiSelect && Array.isArray(answer)) {
+                        totalScore += answer.reduce((sum, val) => {
+                            const option = question.options.find(opt => opt.value === val);
+                            return sum + (option ? (option.score || option.value) : 0);
+                        }, 0);
+                        maxScore += question.options.reduce((sum, opt) => sum + (opt.score || opt.value), 0);
+                    } else if (answer !== undefined) {
+                        const option = question.options.find(opt => opt.value === answer);
+                        totalScore += option ? (option.score || option.value) : 0;
+                        maxScore += Math.max(...question.options.map(opt => opt.score || opt.value));
+                    }
+                });
+                
+                scores[section.key] = Math.round((totalScore / maxScore) * 100) || 0;
+            });
+            
+            return scores;
+        }
+
+        function getScoreLevel(score) {
+            if (score >= 80) return { level: "上級", color: "#10B981", description: "優秀なレベルです" };
+            if (score >= 60) return { level: "中級", color: "#F59E0B", description: "実践的なレベルです" };
+            if (score >= 40) return { level: "初級", color: "#EF4444", description: "基礎的なレベルです" };
+            return { level: "入門", color: "#6B7280", description: "これから学習が必要です" };
+        }
+
+        function createChart() {
+            const canvas = document.getElementById('radarChart');
+            if (!canvas) return;
+
+            const scores = calculateScores();
+            const data = {
+                labels: ['コミュニケーション', 'PCスキル', '事務業務理解', '問題解決', '積極性'],
+                datasets: [{
+                    label: 'スキルレベル',
+                    data: [
+                        scores.communication || 0,
+                        scores.pc_skills || 0,
+                        scores.office_work || 0,
+                        scores.problem_solving || 0,
+                        scores.proactivity || 0
+                    ],
+                    backgroundColor: 'rgba(102, 126, 234, 0.2)',
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(102, 126, 234, 1)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            };
+
+            const config = {
+                type: 'radar',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        r: {
+                            min: 0,
+                            max: 100,
+                            ticks: {
+                                stepSize: 20
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            };
+
+            if (chart) {
+                chart.destroy();
+            }
+            chart = new Chart(canvas, config);
+        }
+
+        function render() {
+            const app = document.getElementById('app');
+            
+            if (showResults) {
+                renderResults();
+                return;
+            }
+
+            const currentSectionData = assessmentSections[currentSection];
+            const progress = ((currentSection + 1) / assessmentSections.length) * 100;
+
+            let html = `
+                <div class="header">
+                    <h1>フルリモート事務職スキルアセスメント</h1>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                        <span>推定所要時間: 20分</span>
+                        <span>${currentSection + 1} / ${assessmentSections.length}</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${progress}%;"></div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2 style="color: #667eea; margin-bottom: 25px;">${currentSectionData.title}</h2>
+            `;
+
+            currentSectionData.questions.forEach((question, qIndex) => {
+                html += `
+                    <div class="question-card">
+                        <h3 style="margin-bottom: 15px; color: #333;">
+                            問${qIndex + 1}. ${question.question}
+                        </h3>
+                `;
+
+                question.options.forEach((option, oIndex) => {
+                    const isChecked = question.multiSelect 
+                        ? (answers[question.id] || []).includes(option.value)
+                        : answers[question.id] === option.value;
+                    
+                    const uniqueId = `${question.id}_${oIndex}`;
+                    
+                    console.log(`Rendering option: ${option.text}, isChecked: ${isChecked}, storedValue: ${answers[question.id]}, optionValue: ${option.value}`);
+                    
+                    html += `
+                        <div class="option ${isChecked ? 'selected' : ''}" onclick="selectAnswer('${question.id}', ${option.value}, ${question.multiSelect || false})">
+                            <input 
+                                type="${question.multiSelect ? 'checkbox' : 'radio'}"
+                                id="${uniqueId}"
+                                name="${question.id}"
+                                value="${oIndex}"
+                                ${isChecked ? 'checked' : ''}
+                            />
+                            <label for="${uniqueId}">${option.text}</label>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+            });
+
+            html += `
+                </div>
+
+                <div class="buttons">
+                    <button 
+                        class="btn btn-secondary" 
+                        onclick="prevSection()"
+                        ${currentSection === 0 ? 'disabled' : ''}
+                    >
+                        前へ
+                    </button>
+                    
+                    <button class="btn btn-primary" onclick="nextSection()">
+                        ${currentSection === assessmentSections.length - 1 ? '結果を見る' : '次へ'}
+                    </button>
+                </div>
+            `;
+
+            app.innerHTML = html;
+        }
+
+        function renderResults() {
+            const app = document.getElementById('app');
+            const scores = calculateScores();
+            const categories = [
+                { key: 'communication', name: 'コミュニケーション' },
+                { key: 'pc_skills', name: 'PCスキル' },
+                { key: 'office_work', name: '事務業務理解' },
+                { key: 'problem_solving', name: '問題解決' },
+                { key: 'proactivity', name: '積極性' }
+            ];
+
+            const lowScores = categories.filter(cat => scores[cat.key] < 60);
+
+            app.innerHTML = `
+                <div class="header">
+                    <h1>アセスメント結果</h1>
+                    <p>あなたの現在のスキルレベルです</p>
+                </div>
+
+                <div class="results">
+                    <div class="chart-container">
+                        <h2>スキルレーダーチャート</h2>
+                        <div class="chart-wrapper">
+                            <canvas id="radarChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="score-list">
+                        <h2>詳細評価</h2>
+                        ${categories.map(cat => {
+                            const score = scores[cat.key] || 0;
+                            const levelInfo = getScoreLevel(score);
+                            return `
+                                <div class="score-item">
+                                    <div class="score-header">
+                                        <h3>${cat.name}</h3>
+                                        <div>
+                                            <span style="color: ${levelInfo.color}; font-size: 24px; font-weight: bold;">${score}</span>
+                                            <span style="color: #666; font-size: 14px;">/100</span>
+                                        </div>
+                                    </div>
+                                    <div class="score-bar">
+                                        <div class="score-fill" style="width: ${score}%; background-color: ${levelInfo.color};"></div>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span class="level-badge" style="background-color: ${levelInfo.color}20; color: ${levelInfo.color};">
+                                            ${levelInfo.level}
+                                        </span>
+                                        <span style="font-size: 12px; color: #666;">${levelInfo.description}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+
+                ${lowScores.length > 0 ? `
+                    <div class="recommendations">
+                        <h3 style="color: #1976d2; margin-bottom: 15px;">推奨学習プラン</h3>
+                        ${lowScores.map(cat => `
+                            <p style="color: #1565c0; margin-bottom: 8px;">
+                                <strong>${cat.name}</strong>: 基礎から重点的に学習することをお勧めします
+                            </p>
+                        `).join('')}
+                    </div>
+                ` : ''}
+
+                <div style="text-align: center; margin-top: 30px;">
+                    <button class="btn btn-primary" onclick="restart()" style="margin-right: 15px;">
+                        再テストする
+                    </button>
+                    <button class="btn btn-secondary" onclick="exportResults()">
+                        結果をダウンロード
+                    </button>
+                </div>
+            `;
+        }
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, starting render');
+            render();
+        });
+    </script>
+</body>
+</html>
